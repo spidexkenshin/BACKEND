@@ -184,6 +184,20 @@ async def admin_edit(title: str, upd: UpdateItem, token: str):
     )
     return {"ok": r.modified_count > 0, "msg": "✅ Updated!" if r.modified_count > 0 else "❌ Not found"}
 
+@app.put("/admin/edit-all/{title}")
+async def admin_edit_all(title: str, data: AnimeItem, token: str):
+    """Save ALL fields in a single DB call — much faster than 17 separate PATCHes"""
+    auth(token)
+    update_data = data.dict()
+    # If title changed, keep original for query but update the record
+    r = await db.anime.update_one(
+        {"title": {"$regex": f"^{re.escape(title)}$", "$options": "i"}},
+        {"$set": update_data}
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"Anime '{title}' not found")
+    return {"ok": True, "msg": f"✅ '{data.title}' saved! ({r.modified_count} fields updated)"}
+
 @app.delete("/admin/delete/{title}")
 async def admin_delete(title: str, token: str):
     auth(token)
